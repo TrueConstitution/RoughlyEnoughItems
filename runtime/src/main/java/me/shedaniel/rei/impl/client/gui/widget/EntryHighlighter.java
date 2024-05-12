@@ -31,6 +31,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiComponent;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.TagParser;
+import java.lang.Exception;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.world.item.ItemStack;
 
 public class EntryHighlighter extends GuiComponent {
     public static void render(PoseStack matrices) {
@@ -39,6 +45,22 @@ public class EntryHighlighter extends GuiComponent {
         if (Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> containerScreen) {
             int x = containerScreen.leftPos, y = containerScreen.topPos;
             for (Slot slot : containerScreen.getMenu().slots) {
+                // shulker box interactions, if not shulker then ignored
+                boolean shulkerMatches = false;
+                try {
+                    CompoundTag shulker = slot.getItem().getTag().getCompound("BlockEntityTag");
+                    ListTag itemsInShulker = shulker.getList("Items", 8);
+                    shulkerMatches = itemsInShulker.stream().anyMatch(item -> {
+                        CompoundTag itemTag;
+                        try {
+                            itemTag = TagParser.parseTag(item.getAsString());
+                        } catch (CommandSyntaxException e) {return EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
+                                ItemStack.EMPTY));}
+                        return EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
+                                ItemStack.of(itemTag)));
+                    });
+                }
+                catch (Exception ignored) {}
                 if (!slot.hasItem() || !EntryListSearchManager.INSTANCE.matches(EntryStacks.of(slot.getItem()))) {
                     matrices.pushPose();
                     matrices.translate(0, 0, 500f);
