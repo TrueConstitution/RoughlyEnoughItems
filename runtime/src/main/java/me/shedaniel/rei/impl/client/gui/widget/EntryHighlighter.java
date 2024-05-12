@@ -34,7 +34,9 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
-import java.lang.Exception;
+import java.lang.RuntimeException;
+import java.util.HashMap;
+
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.world.item.ItemStack;
 
@@ -45,42 +47,61 @@ public class EntryHighlighter extends GuiComponent {
         if (Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> containerScreen) {
             int x = containerScreen.leftPos, y = containerScreen.topPos;
             for (Slot slot : containerScreen.getMenu().slots) {
-                // shulker box interactions, if not shulker then ignored
                 boolean shulkerMatches = false;
-                try {
-                    CompoundTag shulker = slot.getItem().getTag().getCompound("BlockEntityTag");
-                    ListTag itemsInShulker = shulker.getList("Items", 8);
-                    shulkerMatches = itemsInShulker.stream().anyMatch(item -> {
-                        CompoundTag itemTag;
-                        try {
-                            itemTag = TagParser.parseTag(item.getAsString());
-                        } catch (CommandSyntaxException e) {return EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
-                                ItemStack.EMPTY));}
-                        return EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
-                                ItemStack.of(itemTag)));
-                    });
-                }
-                catch (Exception ignored) {}
-                if (!slot.hasItem() || !EntryListSearchManager.INSTANCE.matches(EntryStacks.of(slot.getItem()))) {
-                    matrices.pushPose();
-                    matrices.translate(0, 0, 500f);
-                    fillGradient(matrices, x + slot.x, y + slot.y, x + slot.x + 16, y + slot.y + 16, 0xdc202020, 0xdc202020, 0);
-                    matrices.popPose();
-                } else {
+                if (slot.getItem().getDescriptionId().contains("shulker_box")) shulkerMatches = helper.shulkerMatches(slot.getItem());
+                if (slot.hasItem() && (EntryListSearchManager.INSTANCE.matches(EntryStacks.of(slot.getItem())) || shulkerMatches)) {
                     matrices.pushPose();
                     matrices.translate(0, 0, 200f);
                     fillGradient(matrices, x + slot.x, y + slot.y, x + slot.x + 16, y + slot.y + 16, 0x345fff3b, 0x345fff3b, 0);
-                
+
                     fillGradient(matrices, x + slot.x - 1, y + slot.y - 1, x + slot.x, y + slot.y + 16 + 1, 0xff5fff3b, 0xff5fff3b, 0);
                     fillGradient(matrices, x + slot.x + 16, y + slot.y - 1, x + slot.x + 16 + 1, y + slot.y + 16 + 1, 0xff5fff3b, 0xff5fff3b, 0);
                     fillGradient(matrices, x + slot.x - 1, y + slot.y - 1, x + slot.x + 16, y + slot.y, 0xff5fff3b, 0xff5fff3b, 0);
                     fillGradient(matrices, x + slot.x - 1, y + slot.y + 16, x + slot.x + 16, y + slot.y + 16 + 1, 0xff5fff3b, 0xff5fff3b, 0);
-                
+
+                    matrices.popPose();
+                } else {
+                    matrices.pushPose();
+                    matrices.translate(0, 0, 500f);
+                    fillGradient(matrices, x + slot.x, y + slot.y, x + slot.x + 16, y + slot.y + 16, 0xdc202020, 0xdc202020, 0);
                     matrices.popPose();
                 }
             }
         }
         RenderSystem.colorMask(true, true, true, true);
         RenderSystem.enableDepthTest();
+    }
+    public static void clearCache() {
+        helper.clear();
+    }
+    private static class helper {
+    private static HashMap<CompoundTag, Boolean> shulkermap = new HashMap<>();
+    public static void clear() {
+        shulkermap.clear();
+    }
+    public static boolean shulkerMatches(ItemStack stack) {
+        CompoundTag shulker = stack.getTag();
+        if (shulkermap.containsKey(shulker)) return shulkermap.get(shulker);
+        try {
+            CompoundTag blockEntityTag = shulker.getCompound("BlockEntityTag");
+            ListTag itemsInShulker = (ListTag) blockEntityTag.get("Items");
+            assert itemsInShulker != null;
+            shulkermap.put(shulker, itemsInShulker.stream().anyMatch(item -> {
+                    CompoundTag itemTag;
+                    try {
+                        itemTag = TagParser.parseTag(item.getAsString());
+                    } catch (CommandSyntaxException e) {
+                        return EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
+                                ItemStack.EMPTY));
+                    }
+                    if (EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
+                            ItemStack.of(itemTag)))) System.out.println("found match: " + itemTag);
+                return EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
+                        ItemStack.of(itemTag)));
+            }));
+        }
+        catch (RuntimeException ignored) {}
+        return shulkermap.getOrDefault(shulker, false);
+    }
     }
 }
