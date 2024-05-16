@@ -94,8 +94,6 @@ public class EntryHighlighter extends GuiComponent {
                         return EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
                                 ItemStack.EMPTY));
                     }
-                    if (EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
-                            ItemStack.of(itemTag)))) System.out.println("found match: " + itemTag);
                 return EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
                         ItemStack.of(itemTag)));
             }));
