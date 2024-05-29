@@ -437,6 +437,7 @@ public abstract class ScreenOverlayImpl extends ScreenOverlay {
         if (!REIRuntime.getInstance().isOverlayVisible())
             return false;
         if (!hasSpace()) return false;
+        EntryHighlighter.clearCache();
         if (choosePageWidget != null) {
             return choosePageWidget.charTyped(character, modifiers);
         }
