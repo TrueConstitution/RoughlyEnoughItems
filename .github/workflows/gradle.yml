@@ -16,7 +16,7 @@ jobs:
         with:
           arguments: build --stacktrace
       - name: upload fabric artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: fabric
           path: fabric/build/libs/*-fabric.jar
