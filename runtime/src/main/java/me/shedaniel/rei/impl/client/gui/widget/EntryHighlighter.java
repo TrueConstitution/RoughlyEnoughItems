@@ -24,6 +24,7 @@
 package me.shedaniel.rei.impl.client.gui.widget;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import me.shedaniel.math.Color;
 import me.shedaniel.rei.api.common.util.EntryStacks;
 import me.shedaniel.rei.impl.client.config.ConfigManagerImpl;
@@ -32,7 +33,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+
+import java.util.HashMap;
 
 public class EntryHighlighter {
     public static void render(GuiGraphics graphics) {
@@ -46,7 +53,9 @@ public class EntryHighlighter {
         if (Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> containerScreen) {
             int x = containerScreen.leftPos, y = containerScreen.topPos;
             for (Slot slot : containerScreen.getMenu().slots) {
-                if (!slot.hasItem() || !EntryListSearchManager.INSTANCE.matches(EntryStacks.of(slot.getItem()))) {
+                boolean shulkerMatches = false;
+                if (slot.getItem().getDescriptionId().contains("shulker_box")) shulkerMatches = helper.shulkerMatches(slot.getItem());
+                if (!slot.hasItem() || (!EntryListSearchManager.INSTANCE.matches(EntryStacks.of(slot.getItem())) && !shulkerMatches)) {
                     graphics.fillGradient(RenderType.guiOverlay(), x + slot.x, y + slot.y, x + slot.x + 16, y + slot.y + 16, dimColor, dimColor, 0);
                 } else {
                     graphics.pose().pushPose();
@@ -64,5 +73,36 @@ public class EntryHighlighter {
         }
         RenderSystem.colorMask(true, true, true, true);
         RenderSystem.enableDepthTest();
+    }
+    public static void clearCache() {
+        helper.clear();
+    }
+    private static class helper {
+        private static HashMap<CompoundTag, Boolean> shulkermap = new HashMap<>();
+        public static void clear() {
+            shulkermap.clear();
+        }
+        public static boolean shulkerMatches(ItemStack stack) {
+            CompoundTag shulker = stack.getTag();
+            if (shulkermap.containsKey(shulker)) return shulkermap.get(shulker);
+            try {
+                CompoundTag blockEntityTag = shulker.getCompound("BlockEntityTag");
+                ListTag itemsInShulker = (ListTag) blockEntityTag.get("Items");
+                assert itemsInShulker != null;
+                shulkermap.put(shulker, itemsInShulker.stream().anyMatch(item -> {
+                    CompoundTag itemTag;
+                    try {
+                        itemTag = TagParser.parseTag(item.getAsString());
+                    } catch (CommandSyntaxException e) {
+                        return EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
+                                ItemStack.EMPTY));
+                    }
+                    return EntryListSearchManager.INSTANCE.matches(EntryStacks.of(
+                            ItemStack.of(itemTag)));
+                }));
+            }
+            catch (RuntimeException ignored) {}
+            return shulkermap.getOrDefault(shulker, false);
+        }
     }
 }
